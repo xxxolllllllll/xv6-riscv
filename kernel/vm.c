@@ -302,6 +302,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   uint64 pa, i;
   uint flags;
   char *mem;
+  
 
   for (i = 0; i < sz; i += PGSIZE) {
     if ((pte = walk(old, i, 0)) == 0)
@@ -309,12 +310,23 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if ((*pte & PTE_V) == 0)
       continue; // physical page hasn't been allocated
     pa = PTE2PA(*pte);
+//  enable COW
+    if (*pte & PTE_W) {
+      *pte = PTE_COW | *pte;
+      *pte = *pte & (!PTE_W);
+    } 
     flags = PTE_FLAGS(*pte);
+/**
     if ((mem = kalloc()) == 0)
       goto err;
     memmove(mem, (char *)pa, PGSIZE);
+
     if (mappages(new, i, PGSIZE, (uint64)mem, flags) != 0) {
       kfree(mem);
+      goto err;
+    }
+**/
+    if(mappages(new, i, PGSIZE, pa, flags) != 0) {
       goto err;
     }
   }
@@ -461,8 +473,22 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
     return 0;
   va = PGROUNDDOWN(va);
   if (ismapped(pagetable, va)) {
+/**
     return 0;
-  }
+**/
+//  Copy on write page
+    pte_t *p = walk(pagetable, va, 1);
+    if (*p & PTE_COW) {
+	  mem = (uint64)kalloc();
+	  if (mem == 0)
+	    return 0;
+	  memmove((void *)mem, (void *)PTE2PA(*p), PGSIZE);
+	  *p = PA2PTE(mem) | PTE_FLAGS(*p) | PTE_W;
+	  return mem;
+    } else {
+	  return 0;
+	}
+  }   
   mem = (uint64)kalloc();
   if (mem == 0)
     return 0;

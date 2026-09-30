@@ -38,10 +38,10 @@ start()
   w_pmpcfg0(0xf);
 
   // enable hardware updates of page table A and D bits
-  w_menvcfg(r_menvcfg() | MENVCFG_ADUE);
+//  w_menvcfg(r_menvcfg() | MENVCFG_ADUE);
 
   // ask for clock interrupts.
-  timerinit();
+//  timerinit();
 
   // keep each CPU's hartid in its tp register, for cpuid().
   int id = r_mhartid();
